@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test:engine": "npx tsx tests/reconciliation.test.ts",
-    "test:scoring": "npx tsx tests/scoring.test.ts"
+    "test:scoring": "npx tsx tests/scoring.test.ts",
+    "test:cases-audit": "npx tsx tests/cases-audit.test.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.5.1",

@@ -56,7 +56,7 @@ LOW
 
 ## EXPECTED CLARITY
 
-High / exact value to be finalized in BHOOMILENS_SPEC.md.
+100/100
 
 ---
 
@@ -86,11 +86,11 @@ To be defined by BHOOMILENS_SPEC.md.
 
 ## EXPECTED PRIORITY
 
-To be defined by BHOOMILENS_SPEC.md.
+HIGH
 
 ## EXPECTED CLARITY
 
-To be defined by BHOOMILENS_SPEC.md.
+75/100
 
 ---
 
@@ -114,11 +114,11 @@ To be defined by BHOOMILENS_SPEC.md.
 
 ## EXPECTED PRIORITY
 
-To be defined by BHOOMILENS_SPEC.md.
+MEDIUM
 
 ## EXPECTED CLARITY
 
-To be defined by BHOOMILENS_SPEC.md.
+80/100
 
 ---
 
@@ -178,11 +178,11 @@ To be defined by BHOOMILENS_SPEC.md.
 
 ## EXPECTED PRIORITY
 
-To be defined by BHOOMILENS_SPEC.md.
+MEDIUM
 
 ## EXPECTED CLARITY
 
-To be defined by BHOOMILENS_SPEC.md.
+70/100
 
 ---
 
@@ -206,11 +206,11 @@ To be defined by BHOOMILENS_SPEC.md.
 
 ## EXPECTED PRIORITY
 
-To be defined by BHOOMILENS_SPEC.md.
+MEDIUM
 
 ## EXPECTED CLARITY
 
-To be defined by BHOOMILENS_SPEC.md.
+85/100
 
 ---
 
@@ -234,11 +234,11 @@ To be defined by BHOOMILENS_SPEC.md.
 
 ## EXPECTED PRIORITY
 
-To be defined by BHOOMILENS_SPEC.md.
+CRITICAL
 
 ## EXPECTED CLARITY
 
-To be defined by BHOOMILENS_SPEC.md.
+70/100
 
 ---
 
@@ -262,11 +262,11 @@ To be defined by BHOOMILENS_SPEC.md.
 
 ## EXPECTED PRIORITY
 
-To be defined by BHOOMILENS_SPEC.md.
+LOW
 
 ## EXPECTED CLARITY
 
-To be defined by BHOOMILENS_SPEC.md.
+75/100
 
 ## IMPORTANT
 
@@ -296,11 +296,11 @@ To be defined by BHOOMILENS_SPEC.md.
 
 ## EXPECTED PRIORITY
 
-To be defined by BHOOMILENS_SPEC.md.
+CRITICAL
 
 ## EXPECTED CLARITY
 
-To be defined by BHOOMILENS_SPEC.md.
+80/100
 
 ---
 
@@ -324,11 +324,11 @@ To be defined by BHOOMILENS_SPEC.md.
 
 ## EXPECTED PRIORITY
 
-To be defined by BHOOMILENS_SPEC.md.
+HIGH
 
 ## EXPECTED CLARITY
 
-To be defined by BHOOMILENS_SPEC.md.
+85/100
 
 ---
 
@@ -362,11 +362,11 @@ To be defined by BHOOMILENS_SPEC.md.
 
 ## EXPECTED PRIORITY
 
-To be defined by BHOOMILENS_SPEC.md.
+MEDIUM
 
 ## EXPECTED CLARITY
 
-To be defined by BHOOMILENS_SPEC.md.
+80/100
 
 ---
 
@@ -404,11 +404,11 @@ To be defined by BHOOMILENS_SPEC.md.
 
 ## EXPECTED PRIORITY
 
-To be defined by BHOOMILENS_SPEC.md.
+HIGH
 
 ## EXPECTED CLARITY
 
-To be defined by BHOOMILENS_SPEC.md.
+70/100
 
 ## IMPORTANT
 
@@ -438,11 +438,11 @@ To be defined by BHOOMILENS_SPEC.md.
 
 ## EXPECTED PRIORITY
 
-To be defined by BHOOMILENS_SPEC.md.
+MEDIUM
 
 ## EXPECTED CLARITY
 
-To be defined by BHOOMILENS_SPEC.md.
+90/100
 
 ---
 
@@ -474,11 +474,11 @@ To be defined by BHOOMILENS_SPEC.md.
 
 ## EXPECTED PRIORITY
 
-To be defined by BHOOMILENS_SPEC.md.
+LOW
 
 ## EXPECTED CLARITY
 
-To be defined by BHOOMILENS_SPEC.md.
+100/100
 
 ---
 
@@ -506,11 +506,11 @@ To be defined by BHOOMILENS_SPEC.md.
 
 ## EXPECTED PRIORITY
 
-To be defined by BHOOMILENS_SPEC.md.
+CRITICAL
 
 ## EXPECTED CLARITY
 
-To be defined by BHOOMILENS_SPEC.md.
+30/100
 
 ---
 

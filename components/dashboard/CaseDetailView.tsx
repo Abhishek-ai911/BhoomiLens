@@ -1,9 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useTransition } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { CaseDetailData } from '@/lib/cases/types';
+import { CaseDetailData, DatabaseCase, ActionPayload, CaseAction } from '@/lib/cases/types';
+import { transitionCaseAction } from '@/app/actions/caseActions';
 import { PriorityBadge } from './PriorityBadge';
 import { StatusBadge } from './StatusBadge';
 import { ClarityMeter } from './ClarityMeter';
@@ -50,9 +52,21 @@ const OPEN_WORLD_BADGES: Record<string, { label: string; bg: string; text: strin
   UNAVAILABLE: { label: 'UNAVAILABLE', bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-300' },
 };
 
+interface ModalConfig {
+  isOpen: boolean;
+  action: 'RESOLVE' | 'REJECT' | 'REQUEST_MORE_INFO' | null;
+  title: string;
+  description: string;
+  label: string;
+  placeholder: string;
+  confirmButtonText: string;
+  confirmButtonClass: string;
+}
+
 export function CaseDetailView({ data }: CaseDetailViewProps) {
+  const router = useRouter();
   const {
-    case: c,
+    case: initialCase,
     conflict,
     parcel,
     interests,
@@ -62,15 +76,177 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
     allParcelConflicts,
   } = data;
 
+  const [currentCase, setCurrentCase] = useState<DatabaseCase>(initialCase);
+  const [isPending, startTransition] = useTransition();
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [copiedCaseId, setCopiedCaseId] = useState(false);
 
+  // Justification Modal State
+  const [modalConfig, setModalConfig] = useState<ModalConfig>({
+    isOpen: false,
+    action: null,
+    title: '',
+    description: '',
+    label: '',
+    placeholder: '',
+    confirmButtonText: '',
+    confirmButtonClass: '',
+  });
+  const [modalInput, setModalInput] = useState('');
+
   const handleCopyCaseId = () => {
-    navigator.clipboard.writeText(c.case_id);
+    navigator.clipboard.writeText(currentCase.case_id);
     setCopiedCaseId(true);
     setTimeout(() => setCopiedCaseId(false), 2000);
   };
 
   const conflictTitle = CONFLICT_TITLES[conflict.conflict_type] || conflict.conflict_type.replace(/_/g, ' ');
+
+  // Direct Action: Assign to Me (OPEN -> ASSIGNED)
+  const handleAssign = () => {
+    setActionError(null);
+    setActionSuccess(null);
+    startTransition(async () => {
+      const res = await transitionCaseAction({
+        caseId: currentCase.case_id,
+        action: 'ASSIGN',
+      });
+
+      if (res.success && res.case) {
+        setCurrentCase(res.case);
+        setActionSuccess('Case successfully assigned to your officer profile.');
+        router.refresh();
+      } else {
+        setActionError(res.error || 'Failed to assign case.');
+      }
+    });
+  };
+
+  // Direct Action: Start Verification (ASSIGNED -> UNDER_VERIFICATION)
+  const handleStartVerification = () => {
+    setActionError(null);
+    setActionSuccess(null);
+    startTransition(async () => {
+      const res = await transitionCaseAction({
+        caseId: currentCase.case_id,
+        action: 'START_VERIFICATION',
+      });
+
+      if (res.success && res.case) {
+        setCurrentCase(res.case);
+        setActionSuccess('Verification commenced. Case moved to Under Verification.');
+        router.refresh();
+      } else {
+        setActionError(res.error || 'Failed to start verification.');
+      }
+    });
+  };
+
+  // Direct Action: Resume Verification (MORE_INFO_REQUESTED -> UNDER_VERIFICATION)
+  const handleResumeVerification = () => {
+    setActionError(null);
+    setActionSuccess(null);
+    startTransition(async () => {
+      const res = await transitionCaseAction({
+        caseId: currentCase.case_id,
+        action: 'START_VERIFICATION',
+        payload: { note: 'Resuming verification with updated records' },
+      });
+
+      if (res.success && res.case) {
+        setCurrentCase(res.case);
+        setActionSuccess('Verification resumed following information review.');
+        router.refresh();
+      } else {
+        setActionError(res.error || 'Failed to resume verification.');
+      }
+    });
+  };
+
+  // Open Modal for Justified Actions
+  const openActionModal = (action: 'RESOLVE' | 'REJECT' | 'REQUEST_MORE_INFO') => {
+    setActionError(null);
+    setActionSuccess(null);
+    setModalInput('');
+
+    if (action === 'RESOLVE') {
+      setModalConfig({
+        isOpen: true,
+        action: 'RESOLVE',
+        title: 'Resolve Conflict Case',
+        description:
+          'Provide a mandatory legal/verification note explaining the basis of resolution (e.g., succession certificate verified, mutation regularized, or area reconciled).',
+        label: 'Resolution Justification Note (Required)',
+        placeholder: 'Enter official resolution findings and statutory basis...',
+        confirmButtonText: 'Confirm & Resolve Case',
+        confirmButtonClass: 'bg-emerald-600 hover:bg-emerald-500 text-white',
+      });
+    } else if (action === 'REJECT') {
+      setModalConfig({
+        isOpen: true,
+        action: 'REJECT',
+        title: 'Reject Conflict Case',
+        description:
+          'Provide a mandatory rejection reason explaining why the dispute or transaction claim is invalid or rejected.',
+        label: 'Rejection Reason (Required)',
+        placeholder: 'Enter official reason for dispute rejection...',
+        confirmButtonText: 'Confirm & Reject Case',
+        confirmButtonClass: 'bg-rose-600 hover:bg-rose-500 text-white',
+      });
+    } else if (action === 'REQUEST_MORE_INFO') {
+      setModalConfig({
+        isOpen: true,
+        action: 'REQUEST_MORE_INFO',
+        title: 'Request Additional Information',
+        description:
+          'Specify the exact departmental documents, certified registry copies, or cadastral measurements required to proceed with verification.',
+        label: 'Query Details & Required Documents (Required)',
+        placeholder: 'Specify certificates, certified deeds, or survey records required...',
+        confirmButtonText: 'Submit Query & Update Status',
+        confirmButtonClass: 'bg-amber-600 hover:bg-amber-500 text-white',
+      });
+    }
+  };
+
+  // Submit Justified Modal Action
+  const handleModalSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modalConfig.action || modalInput.trim() === '') return;
+
+    const action = modalConfig.action;
+    const trimmedInput = modalInput.trim();
+
+    let payload: ActionPayload = {};
+    if (action === 'RESOLVE') {
+      payload = { resolutionNote: trimmedInput };
+    } else if (action === 'REJECT') {
+      payload = { rejectionReason: trimmedInput };
+    } else if (action === 'REQUEST_MORE_INFO') {
+      payload = { queryDetails: trimmedInput };
+    }
+
+    setActionError(null);
+    setActionSuccess(null);
+
+    startTransition(async () => {
+      const res = await transitionCaseAction({
+        caseId: currentCase.case_id,
+        action,
+        payload,
+      });
+
+      if (res.success && res.case) {
+        setCurrentCase(res.case);
+        setModalConfig((prev) => ({ ...prev, isOpen: false }));
+        setModalInput('');
+        setActionSuccess(`Case status successfully updated to ${res.case.status.replace(/_/g, ' ')}.`);
+        router.refresh();
+      } else {
+        setActionError(res.error || 'Failed to submit case action.');
+      }
+    });
+  };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
@@ -106,14 +282,14 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
               <h1 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">
                 {conflictTitle}
               </h1>
-              <StatusBadge status={c.status} />
+              <StatusBadge status={currentCase.status} />
               <PriorityBadge priority={scores.priority.priority} />
             </div>
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
               <div className="flex items-center gap-1.5">
                 <span className="font-semibold text-slate-700">Case ID:</span>
-                <span className="font-mono text-slate-900">{c.case_id}</span>
+                <span className="font-mono text-slate-900">{currentCase.case_id}</span>
                 <button
                   onClick={handleCopyCaseId}
                   title="Copy Case ID"
@@ -132,7 +308,7 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
               <div>
                 <span className="text-slate-500">Created:</span>{' '}
                 <span className="font-medium text-slate-700">
-                  {new Date(c.created_at).toLocaleString('en-IN', {
+                  {new Date(currentCase.created_at).toLocaleString('en-IN', {
                     dateStyle: 'medium',
                     timeStyle: 'short',
                   })}
@@ -142,7 +318,7 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
               <div>
                 <span className="text-slate-500">Assigned Officer:</span>{' '}
                 <span className="font-medium text-slate-700 font-mono">
-                  {c.assigned_to ? c.assigned_to : 'Unassigned (Open Queue)'}
+                  {currentCase.assigned_to ? currentCase.assigned_to : 'Unassigned (Open Queue)'}
                 </span>
               </div>
             </div>
@@ -315,9 +491,248 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
           </div>
         </div>
 
-        {/* Right Column: Conflict Evidence, Interests, Transactions (5 cols) */}
+        {/* Right Column: Human Review Actions, Conflict Evidence, Interests, Transactions (5 cols) */}
         <div className="lg:col-span-5 space-y-6">
-          {/* 1. Conflict & Deterministic Evidence Package */}
+          {/* 1. Dedicated Human Review Action Card */}
+          <div className="bg-white rounded-2xl border-2 border-slate-200 p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-emerald-600 animate-pulse" />
+                <h2 className="text-sm font-bold text-slate-900">Human Review & Workflow</h2>
+              </div>
+              <StatusBadge status={currentCase.status} />
+            </div>
+
+            {/* Status & Assignment Indicator */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-50 p-3 rounded-xl border border-slate-100">
+              <div>
+                <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">
+                  Current Status
+                </span>
+                <span className="font-bold text-slate-800 text-xs mt-0.5 block">
+                  {currentCase.status.replace(/_/g, ' ')}
+                </span>
+              </div>
+              <div>
+                <span className="text-slate-400 block text-[10px] font-bold uppercase tracking-wider">
+                  Assigned Officer
+                </span>
+                <span
+                  className="font-mono text-slate-800 text-xs mt-0.5 truncate block"
+                  title={currentCase.assigned_to || 'Unassigned'}
+                >
+                  {currentCase.assigned_to
+                    ? `${currentCase.assigned_to.substring(0, 16)}...`
+                    : 'Unassigned (Open Queue)'}
+                </span>
+              </div>
+            </div>
+
+            {/* Error / Success feedback alerts */}
+            {actionError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-800 flex items-start justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <svg className="w-4 h-4 text-red-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span>{actionError}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActionError(null)}
+                  className="text-red-400 hover:text-red-600 font-bold ml-1 text-sm leading-none"
+                >
+                  &times;
+                </button>
+              </div>
+            )}
+
+            {actionSuccess && (
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 flex items-start justify-between gap-2">
+                <div className="flex items-center gap-1.5">
+                  <svg className="w-4 h-4 text-emerald-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>{actionSuccess}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActionSuccess(null)}
+                  className="text-emerald-400 hover:text-emerald-600 font-bold ml-1 text-sm leading-none"
+                >
+                  &times;
+                </button>
+              </div>
+            )}
+
+            {/* State-Driven Available Officer Actions */}
+            {currentCase.status === 'OPEN' && (
+              <div className="space-y-3 pt-1">
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  This case is currently unassigned in the public queue. Assign this case to yourself to take official ownership and commence investigation.
+                </p>
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={handleAssign}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50 transition shadow-sm"
+                >
+                  {isPending ? (
+                    <>
+                      <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      <span>Assigning Case...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                      </svg>
+                      <span>Assign to Me</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {currentCase.status === 'ASSIGNED' && (
+              <div className="space-y-3 pt-1">
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Case is assigned. Start the active verification process to inspect spatial boundaries, cross-registry deeds, and parties.
+                </p>
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={handleStartVerification}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 transition shadow-sm"
+                >
+                  {isPending ? (
+                    <>
+                      <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      <span>Initiating Verification...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Start Verification</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {currentCase.status === 'UNDER_VERIFICATION' && (
+              <div className="space-y-3 pt-1">
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Verification in progress. Evaluate the deterministic evidence on this parcel and select the appropriate resolution action:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => openActionModal('RESOLVE')}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 transition shadow-sm"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span>Resolve</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => openActionModal('REJECT')}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-500 disabled:opacity-50 transition shadow-sm"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <span>Reject</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => openActionModal('REQUEST_MORE_INFO')}
+                    className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-amber-600 text-white hover:bg-amber-500 disabled:opacity-50 transition shadow-sm"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>More Info</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {currentCase.status === 'MORE_INFO_REQUESTED' && (
+              <div className="space-y-3 pt-1">
+                <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 leading-relaxed">
+                  <strong>Pending Departmental Response:</strong> Additional documentation or certified records have been requested from the department.
+                </div>
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={handleResumeVerification}
+                  className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-500 disabled:opacity-50 transition shadow-sm"
+                >
+                  {isPending ? (
+                    <>
+                      <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      <span>Resuming Verification...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <span>Resume Verification</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {currentCase.status === 'RESOLVED' && (
+              <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-900 space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Case Resolved</span>
+                </div>
+                <p className="text-emerald-700 text-[11px] leading-relaxed">
+                  This case has been resolved following officer verification. Historical resolution details and officer justifications are recorded in the append-only audit trail at the application layer.
+                </p>
+              </div>
+            )}
+
+            {currentCase.status === 'REJECTED' && (
+              <div className="p-4 bg-slate-100 rounded-xl border border-slate-200 text-xs text-slate-800 space-y-1">
+                <div className="font-bold flex items-center gap-1.5 text-slate-900">
+                  <svg className="w-4 h-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span>Case Rejected / Dismissed</span>
+                </div>
+                <p className="text-slate-600 text-[11px] leading-relaxed">
+                  This case has been rejected/dismissed. The recorded rationale is preserved in the append-only audit log at the application layer.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* 2. Conflict & Deterministic Evidence Package */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
@@ -404,7 +819,7 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
             </div>
           </div>
 
-          {/* 2. Interests & Ownership Model (interests -> persons) */}
+          {/* 3. Interests & Ownership Model (interests -> persons) */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
@@ -463,7 +878,7 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
             )}
           </div>
 
-          {/* 3. Transaction History Timeline */}
+          {/* 4. Transaction History Timeline */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
@@ -515,7 +930,7 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
             )}
           </div>
 
-          {/* 4. Simultaneous Parcel Conflicts (if more than 1) */}
+          {/* 5. Simultaneous Parcel Conflicts (if more than 1) */}
           {allParcelConflicts.length > 1 && (
             <div className="bg-amber-50/60 rounded-2xl border border-amber-200 p-4 shadow-sm space-y-2">
               <h3 className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
@@ -545,6 +960,75 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
           )}
         </div>
       </div>
+
+      {/* Justification Modal Dialog */}
+      {modalConfig.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-lg w-full p-6 space-y-4">
+            <div className="flex items-start justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">{modalConfig.title}</h3>
+                <p className="text-xs text-slate-500 mt-1 leading-relaxed">{modalConfig.description}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg text-lg leading-none"
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={handleModalSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  {modalConfig.label}
+                </label>
+                <textarea
+                  rows={4}
+                  required
+                  autoFocus
+                  value={modalInput}
+                  onChange={(e) => setModalInput(e.target.value)}
+                  placeholder={modalConfig.placeholder}
+                  className="w-full text-xs rounded-xl border border-slate-300 p-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800 focus:border-slate-800 resize-none bg-slate-50 focus:bg-white transition"
+                />
+                <span className="text-[10px] text-slate-400 mt-1 block text-right font-mono">
+                  {modalInput.trim().length} characters (mandatory)
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setModalConfig((prev) => ({ ...prev, isOpen: false }))}
+                  disabled={isPending}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 disabled:opacity-50 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending || modalInput.trim() === ''}
+                  className={`px-4 py-2 rounded-xl text-xs font-bold ${modalConfig.confirmButtonClass} disabled:opacity-40 disabled:cursor-not-allowed transition shadow-sm flex items-center gap-1.5`}
+                >
+                  {isPending ? (
+                    <>
+                      <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                      </svg>
+                      <span>Processing...</span>
+                    </>
+                  ) : (
+                    <span>{modalConfig.confirmButtonText}</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

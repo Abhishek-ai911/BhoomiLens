@@ -100,3 +100,52 @@ export interface SyncReconciliationResult {
   conflicts: DatabaseConflict[];
   cases: DatabaseCase[];
 }
+
+export interface CaseDetailData {
+  case: DatabaseCase;
+  conflict: DatabaseConflict;
+  parcel: {
+    parcel_id: string;
+    ulpin: string;
+    geometry: any | null;
+    area: number | null;
+    classification: string | null;
+  };
+  persons: { person_id: string; name: string }[];
+  interests: {
+    interest_id: string;
+    parcel_id: string;
+    person_id: string;
+    person_name: string;
+    interest_type: string;
+    share: number | null;
+    status: string | null;
+    valid_from: string | null;
+    valid_to: string | null;
+  }[];
+  records: {
+    record_id: string;
+    parcel_id: string;
+    person_id: string | null;
+    person_name: string | null;
+    record_type: string;
+    source: string;
+    payload: Record<string, any> | null;
+    status: string;
+    valid_from: string | null;
+    valid_to: string | null;
+    recorded_at: string;
+  }[];
+  transactions: {
+    transaction_id: string;
+    parcel_id: string;
+    from_person_id: string;
+    from_person_name: string;
+    to_person_id: string;
+    to_person_name: string;
+    occurred_at: string;
+  }[];
+  scores: import('../scoring/types').ParcelScoreResult;
+  allParcelConflicts: DatabaseConflict[];
+}
+

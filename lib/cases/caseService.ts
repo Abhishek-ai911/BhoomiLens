@@ -12,6 +12,7 @@ import { recordAuditLog } from '../audit/auditService';
 import {
   ActionPayload,
   CaseAction,
+  CaseDetailData,
   CaseStatus,
   CaseTransitionResult,
   DatabaseCase,
@@ -491,3 +492,148 @@ export async function getOfficerPriorityQueue(
 
   return queueItems;
 }
+
+/**
+ * Retrieves the complete deterministic case detail data including
+ * parcel information, conflict evidence, source records, interests,
+ * transactions, and real-time scores for the Case Detail View.
+ */
+export async function getCaseDetailById(
+  supabase: SupabaseClient,
+  caseId: string
+): Promise<CaseDetailData | null> {
+  // 1. Fetch case
+  const { data: caseRow, error: caseErr } = await supabase
+    .from('cases')
+    .select('*')
+    .eq('case_id', caseId)
+    .maybeSingle();
+
+  if (caseErr || !caseRow) {
+    return null;
+  }
+
+  // 2. Fetch associated conflict
+  const { data: conflictRow, error: confErr } = await supabase
+    .from('conflicts')
+    .select('*')
+    .eq('conflict_id', caseRow.conflict_id)
+    .maybeSingle();
+
+  if (confErr || !conflictRow) {
+    return null;
+  }
+
+  // 3. Fetch associated parcel
+  const { data: parcelRow, error: parcelErr } = await supabase
+    .from('parcels')
+    .select('*')
+    .eq('parcel_id', conflictRow.parcel_id)
+    .maybeSingle();
+
+  if (parcelErr || !parcelRow) {
+    return null;
+  }
+
+  // 4. Fetch all persons (to resolve party names across interests, records, transactions)
+  const { data: personsData } = await supabase.from('persons').select('*');
+  const personsList = personsData || [];
+  const personMap = new Map<string, string>();
+  personsList.forEach((p) => personMap.set(p.person_id, p.name));
+
+  // 5. Fetch all interests for this parcel
+  const { data: interestsData } = await supabase
+    .from('interests')
+    .select('*')
+    .eq('parcel_id', parcelRow.parcel_id);
+
+  const mappedInterests = (interestsData || []).map((i) => ({
+    interest_id: i.interest_id,
+    parcel_id: i.parcel_id,
+    person_id: i.person_id,
+    person_name: personMap.get(i.person_id) || 'Unknown Party',
+    interest_type: i.interest_type,
+    share: i.share,
+    status: i.status,
+    valid_from: i.valid_from,
+    valid_to: i.valid_to,
+  }));
+
+  // 6. Fetch all records for this parcel
+  const { data: recordsData } = await supabase
+    .from('records')
+    .select('*')
+    .eq('parcel_id', parcelRow.parcel_id)
+    .order('recorded_at', { ascending: false });
+
+  const mappedRecords = (recordsData || []).map((r) => ({
+    record_id: r.record_id,
+    parcel_id: r.parcel_id,
+    person_id: r.person_id,
+    person_name: r.person_id ? personMap.get(r.person_id) || null : null,
+    record_type: r.record_type,
+    source: r.source,
+    payload: r.payload,
+    status: r.status,
+    valid_from: r.valid_from,
+    valid_to: r.valid_to,
+    recorded_at: r.recorded_at,
+  }));
+
+  // 7. Fetch all transactions for this parcel
+  const { data: txData } = await supabase
+    .from('transactions')
+    .select('*')
+    .eq('parcel_id', parcelRow.parcel_id)
+    .order('occurred_at', { ascending: false });
+
+  const mappedTx = (txData || []).map((t) => ({
+    transaction_id: t.transaction_id,
+    parcel_id: t.parcel_id,
+    from_person_id: t.from_person_id,
+    from_person_name: personMap.get(t.from_person_id) || 'Unknown Entity',
+    to_person_id: t.to_person_id,
+    to_person_name: personMap.get(t.to_person_id) || 'Unknown Entity',
+    occurred_at: t.occurred_at,
+  }));
+
+  // 8. Fetch all conflicts for this parcel
+  const { data: allConflictsData } = await supabase
+    .from('conflicts')
+    .select('*')
+    .eq('parcel_id', parcelRow.parcel_id);
+
+  // 9. Recompute deterministic scores in real-time
+  const bundle: ParcelBundle = {
+    parcel: parcelRow,
+    persons: personsList,
+    interests: interestsData || [],
+    records: recordsData || [],
+    transactions: txData || [],
+  };
+
+  const reconciliation = reconcileParcel(bundle);
+  const scores = scoreParcel({
+    conflicts: reconciliation.conflicts,
+    open_world_states_summary: reconciliation.open_world_states_summary,
+  });
+
+  return {
+    case: caseRow,
+    conflict: conflictRow,
+    parcel: {
+      parcel_id: parcelRow.parcel_id,
+      ulpin: parcelRow.ulpin,
+      geometry: parcelRow.geometry,
+      area: parcelRow.area,
+      classification: parcelRow.classification,
+    },
+    persons: personsList,
+    interests: mappedInterests,
+    records: mappedRecords,
+    transactions: mappedTx,
+    scores,
+    allParcelConflicts: allConflictsData || [],
+  };
+}
+

@@ -21,6 +21,7 @@ export interface DatabaseParcel {
 export interface DatabasePerson {
   person_id: string;
   name: string;
+  masked_aadhaar?: string | null;
 }
 
 export interface DatabaseInterest {

@@ -14,25 +14,9 @@ interface PriorityQueueTableProps {
   isLoading?: boolean;
 }
 
-export function formatConflictName(type: string): string {
-  const map: Record<string, string> = {
-    GOVERNMENT_LAND_RISK: 'Government / Poramboke Land Risk',
-    OWNERSHIP_CONFLICT: 'Ownership Mismatch',
-    COURT_CONFLICT: 'Active Court Dispute / Stay',
-    CIRCULAR_TRANSACTION: 'Circular Transaction Pattern',
-    MUTATION_CONFLICT: 'Pending / Inconsistent Mutation',
-    AREA_MISMATCH: 'Area Variance Discrepancy',
-    BOUNDARY_ANOMALY: 'Spatial / Boundary Anomaly',
-    LAND_USE_CONFLICT: 'Land-Use Classification Mismatch',
-    MULTIPLE_ENCUMBRANCE: 'Multiple Active Encumbrances',
-    LIFECYCLE_CONFLICT: 'Lifecycle / Succession Inconsistency',
-    UNUSUAL_TRANSACTION_VELOCITY: 'High Transaction Velocity',
-    RECURRING_ENTITY: 'Recurring Intermediary Entity',
-    TAX_CONFLICT: 'Tax Assessment Conflict',
-    MISSING_RECORD_CONFLICT: 'Unindexed / Missing Record State',
-  };
-  return map[type] || type.replace(/_/g, ' ');
-}
+import { formatConflictName } from '@/lib/ui/formatters';
+
+export { formatConflictName };
 
 export function PriorityQueueTable({
   items,
@@ -305,9 +289,12 @@ export function PriorityQueueTable({
                         <td colSpan={7} className="p-4 sm:p-5">
                           <div className="bg-white rounded-lg p-4 border border-slate-200 shadow-sm space-y-3">
                             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                                   Deterministic Evidence Package
+                                </span>
+                                <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                  Parcel ULPIN: {item.parcel.ulpin}
                                 </span>
                                 <span className="font-mono text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-600">
                                   Case: {item.case_id}

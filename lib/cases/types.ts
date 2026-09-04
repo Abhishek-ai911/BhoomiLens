@@ -111,7 +111,7 @@ export interface CaseDetailData {
     area: number | null;
     classification: string | null;
   };
-  persons: { person_id: string; name: string }[];
+  persons: { person_id: string; name: string; masked_aadhaar?: string | null }[];
   interests: {
     interest_id: string;
     parcel_id: string;

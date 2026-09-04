@@ -132,7 +132,7 @@ export function AiExplanationCard({
       {/* Statutory Disclaimer */}
       <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400">
         <span className="leading-tight">{explanation.disclaimer}</span>
-        <span className="font-mono text-[9px] text-slate-500">{ulpin}</span>
+        <span className="font-mono text-[10px] text-slate-400 font-semibold">Parcel: {ulpin}</span>
       </div>
     </div>
   );

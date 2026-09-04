@@ -2,6 +2,12 @@
 
 import React from 'react';
 import { DatabaseAuditLog } from '@/lib/cases/types';
+import {
+  formatAuditAction,
+  formatCaseStatus,
+  formatConflictName,
+  formatPriority,
+} from '@/lib/ui/formatters';
 
 interface CaseAuditTimelineProps {
   auditLogs: DatabaseAuditLog[];
@@ -113,7 +119,7 @@ export function CaseAuditTimeline({ auditLogs }: CaseAuditTimelineProps) {
       <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
         {auditLogs.map((log) => {
           const cfg = ACTION_CONFIG[log.action] || {
-            label: log.action.replace(/_/g, ' '),
+            label: formatAuditAction(log.action),
             bg: 'bg-slate-50',
             text: 'text-slate-800',
             border: 'border-slate-200',
@@ -218,14 +224,14 @@ export function CaseAuditTimeline({ auditLogs }: CaseAuditTimelineProps) {
                     <span>•</span>
                     <span>
                       Initial Priority:{' '}
-                      <strong className="text-slate-900 font-mono">{details.initial_priority}</strong>
+                      <strong className="text-slate-900 font-semibold">{formatPriority(details.initial_priority)}</strong>
                     </span>
                     {details.conflict_type && (
                       <>
                         <span>•</span>
                         <span>
                           Type:{' '}
-                          <strong className="text-slate-900 font-mono">{details.conflict_type}</strong>
+                          <strong className="text-slate-900 font-semibold">{formatConflictName(details.conflict_type)}</strong>
                         </span>
                       </>
                     )}
@@ -233,8 +239,11 @@ export function CaseAuditTimeline({ auditLogs }: CaseAuditTimelineProps) {
                 )}
 
                 {details.previous_status && details.new_status && (
-                  <div className="text-[10px] text-slate-500 font-mono">
-                    Status Transition: {details.previous_status} &rarr; {details.new_status}
+                  <div className="text-[11px] text-slate-600">
+                    <span className="text-slate-400 font-semibold">Status Transition: </span>
+                    <span className="font-semibold text-slate-800">{formatCaseStatus(details.previous_status)}</span>
+                    <span className="text-slate-400 font-bold mx-1.5">&rarr;</span>
+                    <span className="font-semibold text-slate-800">{formatCaseStatus(details.new_status)}</span>
                   </div>
                 )}
 

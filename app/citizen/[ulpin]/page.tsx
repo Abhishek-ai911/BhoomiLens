@@ -5,6 +5,10 @@ import { reconcileParcel } from '@/lib/reconciliation/engine';
 import { scoreParcel } from '@/lib/scoring/index';
 import { ParcelBundle } from '@/lib/reconciliation/types';
 import { CitizenPortalView, PublicConflictSummary } from '@/components/citizen/CitizenPortalView';
+import { formatConflictName } from '@/lib/ui/formatters';
+import { resolveAssociatedIdentities, getCitizenIdentitySummary } from '@/lib/identity/identityService';
+import { AshokaChakra } from '@/components/ui/AshokaChakra';
+import { LanguageToggle } from '@/components/ui/LanguageToggle';
 
 export const metadata = {
   title: 'Parcel Verification | BhoomiLens Citizen Portal',
@@ -107,22 +111,32 @@ export default async function CitizenParcelPage({
   if (parcelErr || !parcel) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col justify-between font-sans">
-        <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-xs">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+        <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-2xs">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
             <Link href="/citizen" className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-emerald-700 flex items-center justify-center text-white font-black text-base shadow-sm">
-                B
+              <AshokaChakra size={26} color="#1e3a8a" />
+              <div className="flex flex-col">
+                <span className="font-bold text-base tracking-tight text-slate-900">
+                  BhoomiLens
+                </span>
+                <span className="text-[10px] uppercase tracking-wider text-blue-900 font-bold -mt-0.5">
+                  Citizen Portal • Bhu-Aadhaar Transparency
+                </span>
               </div>
-              <span className="font-bold text-base tracking-tight text-slate-900">
-                BhoomiLens Citizen Portal
-              </span>
             </Link>
-            <Link
-              href="/dashboard"
-              className="text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition"
-            >
-              Officer Portal
-            </Link>
+
+            <div className="flex items-center gap-3">
+              <LanguageToggle />
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition"
+              >
+                <span>Officer Login</span>
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </Link>
+            </div>
           </div>
         </header>
 
@@ -185,7 +199,7 @@ export default async function CitizenParcelPage({
   // Map conflicts to non-jargon citizen summaries
   const publicConflicts: PublicConflictSummary[] = reconciliation.conflicts.map((c) => {
     const mapping = PUBLIC_CONFLICT_MAPPING[c.conflict_type] || {
-      title: c.conflict_type.replace(/_/g, ' '),
+      title: formatConflictName(c.conflict_type),
       template: c.evidence.what,
     };
 
@@ -196,6 +210,16 @@ export default async function CitizenParcelPage({
       sources_involved: c.evidence.source,
     };
   });
+
+  const identityBundle = resolveAssociatedIdentities(
+    parcel.parcel_id,
+    parcel.ulpin,
+    allPersons || [],
+    interests || [],
+    records || [],
+    transactions || []
+  );
+  const identitySummary = getCitizenIdentitySummary(identityBundle);
 
   const citizenData = {
     parcel: {
@@ -210,33 +234,33 @@ export default async function CitizenParcelPage({
     isClear: reconciliation.conflicts.length === 0,
     publicConflicts,
     indexedDepartmentsCount: uniqueDepartments.size,
+    identitySummary,
   };
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-between font-sans">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-xs">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-50 shadow-2xs">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link href="/citizen" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-700 flex items-center justify-center text-white font-black text-base shadow-sm">
-              B
-            </div>
+            <AshokaChakra size={26} color="#1e3a8a" />
             <div className="flex flex-col">
               <span className="font-bold text-base tracking-tight text-slate-900">
                 BhoomiLens
               </span>
-              <span className="text-[10px] uppercase tracking-wider text-emerald-700 font-bold -mt-0.5">
+              <span className="text-[10px] uppercase tracking-wider text-blue-900 font-bold -mt-0.5">
                 Citizen Portal • Bhu-Aadhaar Transparency
               </span>
             </div>
           </Link>
 
           <div className="flex items-center gap-3">
+            <LanguageToggle />
             <Link
-              href="/dashboard"
+              href="/login"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition"
             >
-              <span>Officer Portal</span>
+              <span>Officer Login</span>
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
               </svg>

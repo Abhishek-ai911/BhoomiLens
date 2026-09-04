@@ -13,6 +13,18 @@ import { CaseAuditTimeline } from './CaseAuditTimeline';
 import { AiExplanationCard } from './AiExplanationCard';
 import { AuthorityMatrixModal } from './AuthorityMatrixModal';
 
+import {
+  formatLabel,
+  formatConflictName,
+  formatCaseStatus,
+  formatPresenceStatus,
+  formatPriority,
+} from '@/lib/ui/formatters';
+import { getDemoAadhaarForPerson } from '@/lib/identity/identityService';
+import { SupportedLanguage, getTranslation } from '@/lib/i18n/translations';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
+import { LanguageToggle } from '@/components/ui/LanguageToggle';
+
 // Dynamic import of ParcelMap to ensure client-only MapLibre rendering
 const ParcelMap = dynamic(
   () => import('@/components/map/ParcelMap').then((mod) => mod.ParcelMap),
@@ -48,11 +60,11 @@ const CONFLICT_TITLES: Record<string, string> = {
 };
 
 const OPEN_WORLD_BADGES: Record<string, { label: string; bg: string; text: string; border: string }> = {
-  PRESENT: { label: 'PRESENT', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
-  NOT_FOUND: { label: 'NOT FOUND', bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
-  CONFIRMED_ABSENT: { label: 'CONFIRMED ABSENT', bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
-  CONFLICTING: { label: 'CONFLICTING', bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' },
-  UNAVAILABLE: { label: 'UNAVAILABLE', bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-300' },
+  PRESENT: { label: 'Present', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200' },
+  NOT_FOUND: { label: 'Not Found', bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200' },
+  CONFIRMED_ABSENT: { label: 'Confirmed Absent', bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200' },
+  CONFLICTING: { label: 'Conflicting', bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200' },
+  UNAVAILABLE: { label: 'Unavailable', bg: 'bg-slate-100', text: 'text-slate-700', border: 'border-slate-300' },
 };
 
 interface ModalConfig {
@@ -72,6 +84,7 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
     case: initialCase,
     conflict,
     parcel,
+    persons = [],
     interests,
     records,
     transactions,
@@ -79,6 +92,11 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
     allParcelConflicts,
     auditLogs = [],
   } = data;
+
+  const { lang, t, toggleLanguage } = useLanguage();
+
+  const personMap = new Map<string, { person_id: string; name: string; masked_aadhaar?: string | null }>();
+  (persons || []).forEach((p) => personMap.set(p.person_id, p));
 
   const [currentCase, setCurrentCase] = useState<DatabaseCase>(initialCase);
   const [isPending, startTransition] = useTransition();
@@ -106,7 +124,7 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
     setTimeout(() => setCopiedCaseId(false), 2000);
   };
 
-  const conflictTitle = CONFLICT_TITLES[conflict.conflict_type] || conflict.conflict_type.replace(/_/g, ' ');
+  const conflictTitle = CONFLICT_TITLES[conflict.conflict_type] || formatConflictName(conflict.conflict_type);
 
   // Direct Action: Assign to Me (OPEN -> ASSIGNED)
   const handleAssign = () => {
@@ -245,7 +263,7 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
         setCurrentCase(res.case);
         setModalConfig((prev) => ({ ...prev, isOpen: false }));
         setModalInput('');
-        setActionSuccess(`Case status successfully updated to ${res.case.status.replace(/_/g, ' ')}.`);
+        setActionSuccess(`Case status successfully updated to ${formatCaseStatus(res.case.status)}.`);
         router.refresh();
       } else {
         setActionError(res.error || 'Failed to submit case action.');
@@ -271,11 +289,15 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
           <span className="text-xs font-mono font-medium text-slate-500">Case Details</span>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-500">ULPIN:</span>
-          <span className="text-xs font-mono font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded border border-slate-200">
-            {parcel.ulpin}
-          </span>
+        <div className="flex items-center gap-3">
+          <LanguageToggle />
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-slate-500">Parcel ULPIN:</span>
+            <span className="text-xs font-mono font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded border border-slate-200">
+              {parcel.ulpin}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -292,6 +314,13 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
             </div>
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-slate-700">Parcel ULPIN:</span>
+                <span className="font-mono font-bold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                  {parcel.ulpin}
+                </span>
+              </div>
+              <span>•</span>
               <div className="flex items-center gap-1.5">
                 <span className="font-semibold text-slate-700">Case ID:</span>
                 <span className="font-mono text-slate-900">{currentCase.case_id}</span>
@@ -437,12 +466,12 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2">
                           <span
-                            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase border ${badge.bg} ${badge.text} ${badge.border}`}
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold border ${badge.bg} ${badge.text} ${badge.border}`}
                           >
                             {badge.label}
                           </span>
-                          <span className="text-xs font-bold text-slate-900 font-mono">
-                            {rec.record_type}
+                          <span className="text-xs font-bold text-slate-900 font-semibold">
+                            {formatLabel(rec.record_type)}
                           </span>
                           <span className="text-[11px] text-slate-500">
                             via <strong className="text-slate-700 font-semibold">{rec.source}</strong>
@@ -515,7 +544,7 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
                   Current Status
                 </span>
                 <span className="font-bold text-slate-800 text-xs mt-0.5 block">
-                  {currentCase.status.replace(/_/g, ' ')}
+                  {formatCaseStatus(currentCase.status)}
                 </span>
               </div>
               <div>
@@ -754,8 +783,8 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
                 <div className="w-2 h-2 rounded-full bg-rose-500" />
                 <h2 className="text-sm font-bold text-slate-900">Deterministic Evidence</h2>
               </div>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 uppercase font-mono">
-                {conflict.conflict_type}
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded bg-slate-100 text-slate-800">
+                {formatConflictName(conflict.conflict_type)}
               </span>
             </div>
 
@@ -849,61 +878,84 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
             </div>
           </div>
 
-          {/* 3. Interests & Ownership Model (interests -> persons) */}
+          {/* 3. Unified Land Identity & Ownership Model (Parcel <-> Person <-> Masked Demo Aadhaar) */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                <h2 className="text-sm font-bold text-slate-900">Interests & Legal Rights</h2>
+                <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+                <h2 className="text-sm font-bold text-slate-900">{t.unifiedLandIdentity}</h2>
               </div>
-              <span className="text-xs text-slate-500 font-medium">
-                {interests.length} Registered {interests.length === 1 ? 'Interest' : 'Interests'}
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">
+                {interests.length} Associated {interests.length === 1 ? 'Identity' : 'Identities'}
               </span>
             </div>
 
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              In the BhoomiLens normalized data model, ownership and interest claims are represented through relations between <code className="text-slate-700 bg-slate-100 px-1 py-0.5 rounded font-mono">interests</code> and <code className="text-slate-700 bg-slate-100 px-1 py-0.5 rounded font-mono">persons</code>.
-            </p>
+            {/* Privacy & Architecture Disclaimer */}
+            <div className="p-3 bg-gradient-to-r from-amber-50/70 via-white to-blue-50/50 rounded-xl border border-amber-200/80 text-[11px] text-slate-600 space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                <span>🛡️</span>
+                <span>{t.identityLinkage} • {t.maskedAadhaarDemo}</span>
+              </div>
+              <p className="leading-relaxed">
+                {t.identityDisclaimer}
+              </p>
+            </div>
 
             {interests.length === 0 ? (
               <div className="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-slate-100">
-                No active interests or rights recorded for this parcel.
+                No active interests or statutory rights recorded for this parcel.
               </div>
             ) : (
-              <div className="space-y-2.5">
-                {interests.map((inst) => (
-                  <div
-                    key={inst.interest_id}
-                    className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-1"
-                  >
-                    <div className="flex items-center justify-between">
-                      <strong className="text-slate-900 text-sm font-bold">{inst.person_name}</strong>
-                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-200 text-slate-800">
-                        {inst.interest_type}
-                      </span>
-                    </div>
+              <div className="space-y-3">
+                {interests.map((inst) => {
+                  const personObj = personMap.get(inst.person_id);
+                  const demoAadhaar = getDemoAadhaarForPerson(inst.person_id, personObj?.masked_aadhaar);
+                  return (
+                    <div
+                      key={inst.interest_id}
+                      className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs space-y-2 hover:border-slate-300 transition"
+                    >
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-800 font-bold text-[10px] flex items-center justify-center">
+                            👤
+                          </div>
+                          <div>
+                            <strong className="text-slate-900 text-sm font-bold">{inst.person_name}</strong>
+                            <div className="text-[10px] text-slate-500 font-medium">
+                              {t.relationshipRole}: <span className="font-semibold text-slate-700">{formatLabel(inst.interest_type)}</span>
+                            </div>
+                          </div>
+                        </div>
 
-                    <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60 mt-1">
-                      <span>
-                        Share:{' '}
-                        <strong className="text-slate-800">
-                          {inst.share !== null ? `${Math.round(inst.share * 100)}%` : 'Undivided'}
-                        </strong>
-                      </span>
-                      <span>
-                        Status:{' '}
-                        <span className="font-semibold text-slate-700">{inst.status || 'ACTIVE'}</span>
-                      </span>
-                    </div>
-
-                    {inst.valid_from && (
-                      <div className="text-[10px] text-slate-400 font-mono">
-                        Valid: {new Date(inst.valid_from).toLocaleDateString('en-IN')}
-                        {inst.valid_to ? ` to ${new Date(inst.valid_to).toLocaleDateString('en-IN')}` : ' (Active)'}
+                        <div className="flex items-center gap-1.5 font-mono text-[11px] bg-white px-2.5 py-1 rounded-lg border border-slate-200 text-slate-700 shadow-2xs">
+                          <span className="text-slate-400 text-[10px]">{t.maskedAadhaarDemo}:</span>
+                          <span className="font-bold text-blue-900">{demoAadhaar}</span>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                ))}
+
+                      <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-200/80">
+                        <span>
+                          {t.sharePercentage}:{' '}
+                          <strong className="text-slate-800">
+                            {inst.share !== null ? `${Math.round(inst.share * 100)}%` : 'Undivided'}
+                          </strong>
+                        </span>
+                        <span>
+                          {t.legalStatus}:{' '}
+                          <span className="font-semibold text-slate-700">{formatLabel(inst.status || 'ACTIVE')}</span>
+                        </span>
+                      </div>
+
+                      {inst.valid_from && (
+                        <div className="text-[10px] text-slate-400 font-mono">
+                          Valid: {new Date(inst.valid_from).toLocaleDateString('en-IN')}
+                          {inst.valid_to ? ` to ${new Date(inst.valid_to).toLocaleDateString('en-IN')}` : ' (Active)'}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -982,7 +1034,7 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
                         : 'bg-white text-amber-900 border border-amber-300'
                     }`}
                   >
-                    {cRow.conflict_type}
+                    {formatConflictName(cRow.conflict_type)}
                   </span>
                 ))}
               </div>

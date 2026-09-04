@@ -7,6 +7,7 @@
 
 import { ConflictEvidence, ConflictType } from '../reconciliation/types';
 import { PriorityLevel } from '../scoring/types';
+import { formatConflictName, formatPriority } from '../ui/formatters';
 
 export interface ExplanationInput {
   conflictType: ConflictType;
@@ -180,7 +181,6 @@ export async function generateCaseExplanation(
 
   const apiKey =
     process.env.GEMINI_API_KEY ||
-    process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
     process.env.LLM_API_KEY;
 
   if (apiKey) {
@@ -192,8 +192,8 @@ DO NOT hallucinate facts, DO NOT decide ownership, DO NOT declare guilt or fraud
 Parcel ULPIN: ${ulpin}
 Classification: ${classification || 'Not specified'}
 Clarity Score: ${clarity}/100
-Priority Tier: ${priority}
-Conflict Type: ${conflictType}
+Priority Tier: ${formatPriority(priority)}
+Conflict Type: ${formatConflictName(conflictType)}
 Detected Variance (What): ${evidence.what}
 Legal/Operational Context (Why): ${evidence.why}
 Sources Compared: ${evidence.source.join(', ')}
@@ -252,7 +252,7 @@ Return ONLY valid raw JSON, without markdown code fences or conversational fille
     ', '
   )} citing record IDs (${evidence.record_ids.join(', ')}).`;
 
-  const deterministicRisk = `${knowledge.riskContext} Deterministic clarity score is ${clarity}/100 with a ${priority} priority tier.`;
+  const deterministicRisk = `${knowledge.riskContext} Deterministic clarity score is ${clarity}/100 with a ${formatPriority(priority)} priority tier.`;
 
   return {
     summary: deterministicSummary,

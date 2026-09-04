@@ -4,6 +4,8 @@ import React, { useState, useTransition } from 'react';
 import Link from 'next/link';
 import dynamic from 'next/dynamic';
 import { submitCitizenGrievanceAction, CitizenGrievanceResult } from '@/app/actions/citizenActions';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
+import { LanguageToggle } from '@/components/ui/LanguageToggle';
 
 const ParcelMap = dynamic(
   () => import('@/components/map/ParcelMap').then((mod) => mod.ParcelMap),
@@ -37,6 +39,11 @@ export interface CitizenPortalData {
   isClear: boolean;
   publicConflicts: PublicConflictSummary[];
   indexedDepartmentsCount: number;
+  identitySummary?: {
+    isLinked: boolean;
+    summaryText: string;
+    identities: { maskedName: string; maskedAadhaarDemo: string; role: string }[];
+  };
 }
 
 interface CitizenPortalViewProps {
@@ -44,7 +51,8 @@ interface CitizenPortalViewProps {
 }
 
 export function CitizenPortalView({ data }: CitizenPortalViewProps) {
-  const { parcel, clarityScore, isClear, publicConflicts, indexedDepartmentsCount } = data;
+  const { parcel, clarityScore, isClear, publicConflicts, indexedDepartmentsCount, identitySummary } = data;
+  const { lang, t } = useLanguage();
 
   // Grievance Form State
   const [citizenName, setCitizenName] = useState('');
@@ -94,15 +102,19 @@ export function CitizenPortalView({ data }: CitizenPortalViewProps) {
             <span>Search Another ULPIN</span>
           </Link>
           <span className="text-slate-300">/</span>
-          <span className="font-mono text-slate-700 font-medium">{parcel.ulpin}</span>
+          <span className="font-mono text-slate-700 font-bold">Parcel ULPIN: {parcel.ulpin}</span>
         </div>
 
-        <Link
-          href="/dashboard"
-          className="text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition"
-        >
-          Officer Portal &rarr;
-        </Link>
+        <div className="flex items-center gap-2">
+          <LanguageToggle />
+
+          <Link
+            href="/login"
+            className="text-xs font-bold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg transition"
+          >
+            Officer Login &rarr;
+          </Link>
+        </div>
       </div>
 
       {/* Main Status Hero Card */}
@@ -114,13 +126,17 @@ export function CitizenPortalView({ data }: CitizenPortalViewProps) {
         }`}
       >
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2.5">
+          <div className="space-y-2.5">
+            <div className="flex flex-wrap items-center gap-2.5">
               <span
                 className={`w-3 h-3 rounded-full ${
                   isClear ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500 animate-pulse'
                 }`}
               />
+              <span className="font-mono text-xs font-bold text-slate-900 bg-white/90 px-2.5 py-0.5 rounded border border-slate-200 shadow-2xs">
+                Parcel ULPIN: {parcel.ulpin}
+              </span>
+              <span className="text-slate-400">•</span>
               <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
                 Official Land Record Status
               </span>
@@ -172,8 +188,8 @@ export function CitizenPortalView({ data }: CitizenPortalViewProps) {
                 <div className="w-2 h-2 rounded-full bg-emerald-500" />
                 <h2 className="text-sm font-bold text-slate-900">Cadastral Boundary Map</h2>
               </div>
-              <span className="text-xs font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded">
-                {parcel.ulpin}
+              <span className="text-xs font-mono font-bold text-slate-800 bg-slate-100 px-2.5 py-1 rounded border border-slate-200">
+                Parcel ULPIN: {parcel.ulpin}
               </span>
             </div>
 
@@ -211,6 +227,58 @@ export function CitizenPortalView({ data }: CitizenPortalViewProps) {
                 </span>
               </div>
             </div>
+          </div>
+
+          {/* Unified Land Identity (Citizen Public View) */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full bg-blue-600" />
+                <h2 className="text-sm font-bold text-slate-900">{t.unifiedLandIdentity}</h2>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">
+                {identitySummary?.isLinked ? t.identityLinkageAvailable : 'No Link Recorded'}
+              </span>
+            </div>
+
+            <div className="p-3 bg-gradient-to-r from-blue-50/70 via-white to-amber-50/50 rounded-xl border border-blue-200/80 text-[11px] text-slate-600 space-y-1">
+              <div className="flex items-center gap-1.5 font-bold text-blue-950">
+                <span>🛡️</span>
+                <span>{t.associatedIdentity} • {t.maskedAadhaarDemo}</span>
+              </div>
+              <p className="leading-relaxed">
+                {t.identityDisclaimer}
+              </p>
+            </div>
+
+            {identitySummary && identitySummary.identities.length > 0 ? (
+              <div className="space-y-2.5">
+                {identitySummary.identities.map((idItem, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 bg-slate-50 rounded-xl border border-slate-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-700 font-bold text-[10px] flex items-center justify-center">
+                        👤
+                      </div>
+                      <div>
+                        <span className="font-bold text-slate-900 block">{idItem.maskedName}</span>
+                        <span className="text-[10px] text-slate-500">{t.relationshipRole}: {idItem.role}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 font-mono text-[11px] bg-white px-2 py-1 rounded border border-slate-200 text-slate-700">
+                      <span className="text-slate-400 text-[10px]">{t.maskedAadhaarDemo}:</span>
+                      <span className="font-bold text-blue-900">{idItem.maskedAadhaarDemo}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 text-center text-xs text-slate-400 bg-slate-50 rounded-xl border border-slate-100">
+                No individual identity records associated with this parcel.
+              </div>
+            )}
           </div>
         </div>
 

@@ -10,9 +10,8 @@ export function Navbar() {
   const navLinks = [
     { label: 'Dashboard', href: '/dashboard', active: pathname === '/dashboard' },
     { label: 'Priority Queue', href: '/dashboard/queue', active: pathname === '/dashboard/queue' },
-    { label: 'Parcels (GIS)', href: '#', active: false, disabled: true, phase: 'Phase 2' },
-    { label: 'Cases', href: '#', active: false, disabled: true, phase: 'Phase 2' },
-    { label: 'Audit Trail', href: '#', active: false, disabled: true, phase: 'Phase 2' },
+    { label: 'Authority Matrix', href: '/dashboard/authority', active: pathname === '/dashboard/authority' },
+    { label: 'Citizen Portal', href: '/citizen', active: pathname.startsWith('/citizen') },
   ];
 
   return (
@@ -41,36 +40,19 @@ export function Navbar() {
 
           {/* Navigation Links */}
           <nav className="hidden md:flex items-center space-x-1">
-            {navLinks.map((link) => {
-              if (link.disabled) {
-                return (
-                  <span
-                    key={link.label}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-md text-xs font-medium text-slate-500 cursor-not-allowed select-none"
-                    title={`${link.label} is scheduled for ${link.phase}`}
-                  >
-                    <span>{link.label}</span>
-                    <span className="text-[9px] px-1 py-0.2 rounded bg-slate-800 text-slate-400 font-normal">
-                      {link.phase}
-                    </span>
-                  </span>
-                );
-              }
-
-              return (
-                <Link
-                  key={link.label}
-                  href={link.href}
-                  className={`px-3 py-2 rounded-md text-xs font-medium transition-colors ${
-                    link.active
-                      ? 'bg-slate-800 text-white border border-slate-700 font-semibold'
-                      : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
-                  }`}
-                >
-                  {link.label}
-                </Link>
-              );
-            })}
+            {navLinks.map((link) => (
+              <Link
+                key={link.label}
+                href={link.href}
+                className={`px-3 py-2 rounded-md text-xs font-medium transition-colors ${
+                  link.active
+                    ? 'bg-slate-800 text-white border border-slate-700 font-semibold'
+                    : 'text-slate-300 hover:bg-slate-800/60 hover:text-white'
+                }`}
+              >
+                {link.label}
+              </Link>
+            ))}
           </nav>
 
           {/* Right Header Status / Officer Info */}

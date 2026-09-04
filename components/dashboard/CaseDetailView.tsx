@@ -9,6 +9,9 @@ import { transitionCaseAction } from '@/app/actions/caseActions';
 import { PriorityBadge } from './PriorityBadge';
 import { StatusBadge } from './StatusBadge';
 import { ClarityMeter } from './ClarityMeter';
+import { CaseAuditTimeline } from './CaseAuditTimeline';
+import { AiExplanationCard } from './AiExplanationCard';
+import { AuthorityMatrixModal } from './AuthorityMatrixModal';
 
 // Dynamic import of ParcelMap to ensure client-only MapLibre rendering
 const ParcelMap = dynamic(
@@ -74,6 +77,7 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
     transactions,
     scores,
     allParcelConflicts,
+    auditLogs = [],
   } = data;
 
   const [currentCase, setCurrentCase] = useState<DatabaseCase>(initialCase);
@@ -81,6 +85,7 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [copiedCaseId, setCopiedCaseId] = useState(false);
+  const [showAuthorityModal, setShowAuthorityModal] = useState(false);
 
   // Justification Modal State
   const [modalConfig, setModalConfig] = useState<ModalConfig>({
@@ -732,6 +737,16 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
             )}
           </div>
 
+          {/* 1.5 AI / Decision Support Explanation Layer */}
+          <AiExplanationCard
+            conflictType={conflict.conflict_type}
+            evidence={conflict.evidence}
+            clarity={scores.clarity.score}
+            priority={scores.priority.priority}
+            ulpin={parcel.ulpin}
+            classification={parcel.classification}
+          />
+
           {/* 2. Conflict & Deterministic Evidence Package */}
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -803,11 +818,26 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
               {/* Authority Rule (if present) */}
               {conflict.evidence.authority && (
                 <div>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
-                    Statutory / Authority Rule
-                  </span>
-                  <div className="p-2.5 bg-indigo-50/60 rounded-xl border border-indigo-200 text-indigo-900 text-xs font-semibold">
-                    {conflict.evidence.authority}
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      Statutory / Authority Rule
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowAuthorityModal(true)}
+                      className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline flex items-center gap-1"
+                    >
+                      <span>Explore Precedence Matrix</span>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="p-2.5 bg-indigo-50/60 rounded-xl border border-indigo-200 text-indigo-900 text-xs font-semibold flex items-center justify-between">
+                    <span>{conflict.evidence.authority}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-200/80 text-indigo-900 font-mono">
+                      Statutory Precedence
+                    </span>
                   </div>
                 </div>
               )}
@@ -960,6 +990,16 @@ export function CaseDetailView({ data }: CaseDetailViewProps) {
           )}
         </div>
       </div>
+
+      {/* 3. Immutable Application-Layer Case Audit Timeline */}
+      <CaseAuditTimeline auditLogs={auditLogs} />
+
+      {/* Statutory Authority Precedence Matrix Modal */}
+      <AuthorityMatrixModal
+        isOpen={showAuthorityModal}
+        onClose={() => setShowAuthorityModal(false)}
+        highlightRuleId={conflict.evidence.authority || undefined}
+      />
 
       {/* Justification Modal Dialog */}
       {modalConfig.isOpen && (

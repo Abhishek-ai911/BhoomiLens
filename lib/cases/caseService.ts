@@ -8,7 +8,7 @@ import { ReconciliationResult, ParcelBundle } from '../reconciliation/types';
 import { ParcelScoreResult } from '../scoring/types';
 import { scoreParcel } from '../scoring/index';
 import { reconcileParcel } from '../reconciliation/engine';
-import { recordAuditLog } from '../audit/auditService';
+import { recordAuditLog, getAuditLogsForCase } from '../audit/auditService';
 import {
   ActionPayload,
   CaseAction,
@@ -618,6 +618,9 @@ export async function getCaseDetailById(
     open_world_states_summary: reconciliation.open_world_states_summary,
   });
 
+  // 10. Fetch audit logs for this case
+  const auditLogs = await getAuditLogsForCase(supabase, caseRow.case_id);
+
   return {
     case: caseRow,
     conflict: conflictRow,
@@ -634,6 +637,7 @@ export async function getCaseDetailById(
     transactions: mappedTx,
     scores,
     allParcelConflicts: allConflictsData || [],
+    auditLogs: auditLogs || [],
   };
 }
 

@@ -147,5 +147,6 @@ export interface CaseDetailData {
   }[];
   scores: import('../scoring/types').ParcelScoreResult;
   allParcelConflicts: DatabaseConflict[];
+  auditLogs: DatabaseAuditLog[];
 }
 
